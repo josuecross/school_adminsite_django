@@ -1,135 +1,197 @@
-# Django Admin Site
+# Django Course Management & Admin Project
 
-## Overview
-The code in this repository uses the django framework.
+**Django + PostgreSQL project focused on relational modeling, ORM relationships, migrations, and admin-site customization.**
 
-## Learning Objectives
-* Understand the concepts of Django admin site
-* Create and customize your Django admin site to manage the content of an onlinecourse app
-* Use PostgreSQL an open-soutce relational database management system.
+This repository is an academic / hands-on Django project for modeling an online-course domain and managing that data through Django Admin. The most valuable part of the project is the data model: instructors, learners, courses, lessons, questions, choices, enrollments, and submissions are connected through foreign keys and many-to-many relationships.
 
-## The main files of interest are:
+## What this project demonstrates
 
-admin.py: contains the definitions for each model in the admin panel
-models.py: definitions for each data model
-urls.py: urls for each viewport
-views.py: defines views for each webpage (see .html files in templates folder)
+- Django project/application structure
+- Django ORM models and migrations
+- PostgreSQL-backed development
+- Foreign-key and many-to-many relationships
+- Explicit relationship models with additional attributes
+- Django Admin registration and customization
+- Authentication-user integration through `AUTH_USER_MODEL`
+- Model methods and domain logic
+- Environment-based configuration instead of committed secrets
 
-## Setting up
+## Domain model
 
-Cloning the repository
-```
-git clone https://github.com/josuecross/school_adminsite_django
-```
+The application contains the following main entities:
 
-Install dependencies:
-```
-python3 -m pip install -U -r requirements.txt
-```
+```text
+User
+├── Instructor
+└── Learner
 
-Open settings.py to configure database credentials in DATABASES section.
+Course
+├── many Instructors
+├── many Users through Enrollment
+├── Lessons
+└── Questions
+    └── Choices
 
-Activate models for an onlinecourse app wich will be managed by admin site:
-```
-python3 manage.py makemigrations
-python3 manage.py migrate
-```
+Enrollment
+├── User
+├── Course
+├── enrollment date
+├── course mode
+└── rating
 
-To create a superuser for acces admin site:
-```
-python3 manage.py createsuperuser
-```
-
-To run the server:
-```
-python3 manage.py runserver
-```
-
-
-## Django Administration:
-
-![image](https://github.com/josuecross/adminsite_django/assets/85675115/c6a2f919-a5ce-4239-afd8-f8d3c1db3c6d)
-
-
-## Register Models with Admin site
-You can add models to the admin site adminsite/admin.py: For example a Instructor model:
-
-```
-# Instructor model
-class Instructor(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-    )
-    full_time = models.BooleanField(default=True)
-    total_learners = models.IntegerField()
-
-    def __str__(self):
-        return self.user.username
-
+Submission
+├── Enrollment
+└── selected Choices
 ```
 
-Can be added to the adminsite by registering its model in admin.py:
+### Why `Enrollment` is an explicit model
+
+A direct many-to-many relationship between users and courses would only record membership. In this project the relationship itself has data — enrollment date, mode, and rating — so Django's `through='Enrollment'` pattern is used.
+
+That is a useful relational-modeling example because it separates:
+
+- the **User** entity;
+- the **Course** entity;
+- the **relationship between them**, which has its own attributes.
+
+## Main models
+
+### Instructor
+
+Associates a Django user with instructor-specific information such as full-time status and learner count.
+
+### Learner
+
+Associates a Django user with learner-specific data, including an occupation choice and social link.
+
+### Course
+
+Stores course information, instructors, enrolled users, publication data, and aggregate enrollment state.
+
+### Lesson
+
+Belongs to a course and stores ordered lesson content.
+
+### Question / Choice
+
+Represents assessment questions and answer options. `Question.is_get_score()` provides a small example of model-level scoring logic based on selected choice IDs.
+
+### Enrollment / Submission
+
+`Enrollment` models the user-course relationship. `Submission` connects an enrollment with selected choices for assessment-related workflows.
+
+## Django Admin
+
+The project uses Django Admin as a management interface for the domain models.
+
+Examples include:
+
+- registering models with the admin site;
+- controlling which fields are shown/editable;
+- using inline related models;
+- managing course-related entities from a central interface.
+
+This is useful for understanding how ORM models, admin configuration, and relational data work together before building a separate custom frontend.
+
+## Project structure
+
+```text
+school_adminsite_django/
+├── adminsite/
+│   ├── admin.py        # Django Admin configuration
+│   ├── models.py       # domain / relational models
+│   ├── migrations/     # database schema history
+│   ├── tests.py
+│   └── views.py
+├── myproject/
+│   ├── settings.py     # project configuration
+│   ├── urls.py
+│   ├── asgi.py
+│   └── wsgi.py
+├── manage.py
+├── requirements.txt
+└── .env.example
 ```
-admin.site.register(Instructor)
+
+## Local setup
+
+### 1. Clone and create an environment
+
+```bash
+git clone https://github.com/josuecross/school_adminsite_django.git
+cd school_adminsite_django
+
+python -m venv .venv
+# Linux/macOS
+source .venv/bin/activate
+# Windows
+# .venv\Scripts\activate
+
+pip install -r requirements.txt
 ```
 
-![image](https://github.com/josuecross/adminsite_django/assets/85675115/67559d78-1155-4911-a535-091620eb3f43)
+### 2. Configure PostgreSQL
 
-## Customize Admin Site
+Copy the values from `.env.example` into your shell or preferred local environment loader.
 
-Adding a new class to adminsite/admin.py you can choose wich fiels to include in the admin site
-```
-class Course(models.Model):
-    name = models.CharField(null=False, max_length=30, default='online course')
-    image = models.ImageField(upload_to='course_images/')
-    description = models.CharField(max_length=1000)
-    pub_date = models.DateField(null=True)
-    instructors = models.ManyToManyField(Instructor)
-    users = models.ManyToManyField(settings.AUTH_USER_MODEL, through='Enrollment')
-    total_enrollment = models.IntegerField(default=0)
-    is_enrolled = False
+Required settings include:
 
-    def __str__(self):
-        return "Name: " + self.name + "," + \
-               "Description: " + self.description
-
-    def total_score(self):
-        total_score = 0
-        for question in self.question_set.all():
-            total_score += question.grade
-        return total_score
+```env
+DJANGO_SECRET_KEY=replace-with-a-local-development-secret
+DJANGO_DEBUG=true
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your-local-postgres-password
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
 ```
 
-You can include only selected fields in admin.py like:
+`settings.py` reads these values from environment variables; credentials are not intended to be stored in source control.
+
+### 3. Create the schema
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
 ```
-class CourseAdmin(admin.ModelAdmin):
-    fields = ['pub_date', 'name', 'description']
 
-admin.site.register(Course, CourseAdmin)
+### 4. Create an admin user
+
+```bash
+python manage.py createsuperuser
 ```
-![image](https://github.com/josuecross/adminsite_django/assets/85675115/40c7f0cd-83c7-4170-bfb4-51b4b27b5eb3)
 
+### 5. Run
 
-## Associate Related Models
-
-Django admin privides also a convinient way to associate related objects on a single model managing page.
-In adminsite/admin.py lesson models can be managed together with course objects:
+```bash
+python manage.py runserver
 ```
-class LessonInline(admin.StackedInline):
-    model = Lesson 
-    extra = 5
 
-class CourseAdmin(admin.ModelAdmin):
-    fields = ['pub_date', 'name', 'description']
-    inlines = [LessonInline]
+Then open:
 
-admin.site.register(Course, CourseAdmin)
+```text
+http://127.0.0.1:8000/admin/
 ```
-![Captura de pantalla 2023-09-16 232837](https://github.com/josuecross/adminsite_django/assets/85675115/1a5dc56d-6b1c-448e-a84a-43cd14dd705a)
 
+## Engineering observations
 
+This project is intentionally a learning project rather than a production-ready course platform. Useful next improvements would include:
 
+- stronger automated tests around model behavior and negative cases;
+- correcting exact-match scoring so extra incorrect selections cannot be accepted accidentally;
+- moving repeated domain rules into clearer service/model boundaries;
+- modernizing the Django/Python dependency versions;
+- adding a custom API or frontend on top of the same relational model.
 
+The scoring example is especially useful for QA reasoning: a happy-path test that selects all correct answers is not enough if the rule requires **exactly** the correct choices and no additional wrong choices.
 
+## Portfolio relevance
 
+This repository demonstrates my hands-on foundation in **Python web frameworks, Django ORM, relational modeling, migrations, PostgreSQL, administration workflows, and testing-oriented reasoning**. It complements my newer Python/FastAPI and API-oriented projects by showing another approach to persistence and application structure.
+
+## Author
+
+**Josue David Cruz Lopez**  
+Costa Rica  
+GitHub: [@josuecross](https://github.com/josuecross)  
+LinkedIn: [josue-david-c](https://www.linkedin.com/in/josue-david-c/)
